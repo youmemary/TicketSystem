@@ -4,7 +4,6 @@ using TicketSystem.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Добавление сервисов в контейнер DI
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

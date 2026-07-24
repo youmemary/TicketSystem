@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Encodings.Web;
+using System.Text.Unicode;
 using TicketSystem.Interfaces;
 using TicketSystem.Models;
 
@@ -29,7 +31,13 @@ namespace TicketSystem.Infrastructure.Repositories
 
         private void SaveData(List<UserRequest> data)
         {
-            var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = JavaScriptEncoder.Create(UnicodeRanges.BasicLatin, UnicodeRanges.Cyrillic)
+            };
+
+            var json = JsonSerializer.Serialize(data, options);
             File.WriteAllText(_filePath, json);
         }
 

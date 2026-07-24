@@ -8,63 +8,109 @@ namespace TicketSystem.UI
     {
         private readonly ApiClient _apiClient;
 
+        private UserRequest _editingRequest = null;
+
         public MainWindow()
         {
             InitializeComponent();
             _apiClient = new ApiClient();
-
-            // Загружаем данные сразу при открытии окна
             LoadData();
         }
 
-        // Общий метод для получения данных с сервера
         private async void LoadData()
         {
             var requests = await _apiClient.GetRequestsAsync();
             RequestsGrid.ItemsSource = requests;
         }
 
-        // Кнопка обновления
         private void Refresh_Click(object sender, RoutedEventArgs e)
         {
             LoadData();
         }
 
-        // Добавление реальной заявки из полей ввода
-        private async void Add_Click(object sender, RoutedEventArgs e)
+        private async void AddOrUpdate_Click(object sender, RoutedEventArgs e)
         {
-            // Простая проверка, чтобы не отправлять пустые поля
             if (string.IsNullOrWhiteSpace(TitleInput.Text) || string.IsNullOrWhiteSpace(AuthorInput.Text))
             {
                 MessageBox.Show("Пожалуйста, заполните тему и автора.", "Внимание", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            var newRequest = new UserRequest
+            if (_editingRequest == null)
             {
-                Title = TitleInput.Text,
-                AuthorName = AuthorInput.Text,
-                Description = DescriptionInput.Text,
-                // Берем выбранный текст из выпадающего списка
-                Priority = (PriorityInput.SelectedItem as ComboBoxItem)?.Content.ToString()
-            };
+                var newRequest = new UserRequest
+                {
+                    Title = TitleInput.Text,
+                    AuthorName = AuthorInput.Text,
+                    Description = DescriptionInput.Text,
+                    Priority = (PriorityInput.SelectedItem as ComboBoxItem)?.Content.ToString()
+                };
+                await _apiClient.CreateRequestAsync(newRequest);
+            }
+            else
+            {
+                _editingRequest.Title = TitleInput.Text;
+                _editingRequest.AuthorName = AuthorInput.Text;
+                _editingRequest.Description = DescriptionInput.Text;
+                _editingRequest.Priority = (PriorityInput.SelectedItem as ComboBoxItem)?.Content.ToString();
 
-            await _apiClient.CreateRequestAsync(newRequest);
+                await _apiClient.UpdateRequestAsync(_editingRequest);
 
-            // Очищаем поля ввода после успешного добавления
+                CancelEdit_Click(sender, e);
+            }
+
+            ClearForm();
+            LoadData();
+        }
+
+        private void Edit_Click(object sender, RoutedEventArgs e)
+        {
+            if (RequestsGrid.SelectedItem is UserRequest selectedRequest)
+            {
+                _editingRequest = selectedRequest;
+
+                TitleInput.Text = selectedRequest.Title;
+                AuthorInput.Text = selectedRequest.AuthorName;
+                DescriptionInput.Text = selectedRequest.Description;
+
+                foreach (ComboBoxItem item in PriorityInput.Items)
+                {
+                    if (item.Content.ToString() == selectedRequest.Priority)
+                    {
+                        PriorityInput.SelectedItem = item;
+                        break;
+                    }
+                }
+
+                AddOrUpdateButton.Content = "Сохранить изменения";
+                AddOrUpdateButton.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(33, 150, 243)); // Синий цвет
+                CancelEditButton.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                MessageBox.Show("Сначала выделите строку в таблице, которую хотите отредактировать.", "Подсказка", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+        private void CancelEdit_Click(object sender, RoutedEventArgs e)
+        {
+            _editingRequest = null;
+            AddOrUpdateButton.Content = "Добавить заявку";
+            AddOrUpdateButton.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(76, 175, 80)); // Возвращаем зеленый цвет
+            CancelEditButton.Visibility = Visibility.Collapsed;
+            ClearForm();
+        }
+        
+        private void ClearForm()
+        {
             TitleInput.Clear();
             AuthorInput.Clear();
             DescriptionInput.Clear();
             PriorityInput.SelectedIndex = 1;
-
-            // Обновляем таблицу
-            LoadData();
         }
 
-        // Удаление выделенной строки
         private async void Delete_Click(object sender, RoutedEventArgs e)
         {
-            // Проверяем, выделена ли строка в таблице
             if (RequestsGrid.SelectedItem is UserRequest selectedRequest)
             {
                 var result = MessageBox.Show($"Удалить заявку '{selectedRequest.Title}'?", "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Question);
@@ -72,12 +118,15 @@ namespace TicketSystem.UI
                 if (result == MessageBoxResult.Yes)
                 {
                     await _apiClient.DeleteRequestAsync(selectedRequest.Id);
-                    LoadData(); // Обновляем таблицу
+
+                    // Если мы удалили ту же заявку, которую сейчас редактировали, нужно сбросить форму
+                    if (_editingRequest != null && _editingRequest.Id == selectedRequest.Id)
+                    {
+                        CancelEdit_Click(sender, e);
+                    }
+
+                    LoadData();
                 }
-            }
-            else
-            {
-                MessageBox.Show("Сначала выделите строку в таблице, которую хотите удалить.", "Подсказка", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
     }
