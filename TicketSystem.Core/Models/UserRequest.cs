@@ -1,6 +1,6 @@
 ﻿using System;
 using TicketSystem.Core.Enums;
-
+// Финальная сборка
 namespace TicketSystem.Models
 {
     public class UserRequest
